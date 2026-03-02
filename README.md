@@ -20,14 +20,6 @@ The layer includes recipes for:
 - Camera streaming (GStreamer RTP/UDP → Jetson Orin Nano)
 - System configuration (network, udev rules, systemd services)
 
-## Related Repositories
-
-| Repository | Description |
-|------------|-------------|
-| [pdcApp-ECU1](https://github.com/SEA-ME/pdcApp-ECU1) | ECU1 application source code (VehicleControlECU) |
-| pdcMeta-ECU1 *(this repo)* | ECU1 Yocto meta layer |
-| PDC-main | Main project repo (Arduino, CommonAPI, documentation) |
-
 ## How to Use
 
 This layer is used as part of a Yocto build. Clone it alongside the other Yocto layers and add it to your `bblayers.conf`.
@@ -36,7 +28,6 @@ See [meta-vehiclecontrol/README.md](meta-vehiclecontrol/README.md) for the full 
 - Host prerequisites
 - Yocto layer setup
 - `local.conf` configuration
-- Build and SD card flash instructions
 - Runtime verification
 - Troubleshooting
 
