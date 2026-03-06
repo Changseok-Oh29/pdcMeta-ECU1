@@ -9,6 +9,7 @@ PiRacerController::PiRacerController(QObject *parent)
     , m_currentSpeed(0)
     , m_currentDistance(200)  // Default to max distance (no obstacle)
     , m_currentThrottle(0.0f)
+    , m_stateTimer(nullptr)
 {
 }
 
@@ -46,13 +47,21 @@ bool PiRacerController::initialize()
         } else {
             qWarning() << "⚠️  CAN interface failed - speed/distance will be unavailable";
         }
-        
+
+        // Setup periodic state broadcast timer (10Hz)
+        m_stateTimer = new QTimer(this);
+        connect(m_stateTimer, &QTimer::timeout, this, [this]() {
+            emit vehicleStateChanged(m_currentGear, m_currentSpeed, getBatteryVoltage(), getBatteryCurrent());
+        });
+        m_stateTimer->start(100);  // 10Hz = 100ms interval
+
         qDebug() << "✅ PiRacerController initialized";
         qDebug() << "   - Steering Controller: 0x40";
         qDebug() << "   - Throttle Controller: 0x60";
         qDebug() << "   - Battery Monitor: INA219";
         qDebug() << "   - CAN Interface: can0 (1000kbps)";
-        
+        qDebug() << "   - State Broadcast: 10Hz";
+
         warmUp();
         return true;
         
@@ -99,12 +108,13 @@ void PiRacerController::setThrottlePercent(float percent)
     m_currentThrottle = percent;
     
     // Only allow movement in appropriate gears
+    // Stick UP (positive) is the only input allowed in both D and R
     if (m_currentGear == "P" || m_currentGear == "N") {
         percent = 0.0f;
-    } else if (m_currentGear == "D" && percent < 0.0f) {
-        percent = 0.0f;  // No reverse in Drive
-    } else if (m_currentGear == "R" && percent > 0.0f) {
-        percent = 0.0f;  // No forward in Reverse
+    } else if (percent < 0.0f) {
+        percent = 0.0f;  // Block stick DOWN in both Drive and Reverse
+    } else if (m_currentGear == "R") {
+        percent = -percent;  // Negate so stick UP drives motors backward
     }
     
     // Set motor direction
@@ -138,24 +148,23 @@ void PiRacerController::onSpeedDataReceived(float speedCms)
 
 void PiRacerController::onDistanceDataReceived(float distanceCm)
 {
-    // Store distance in cm
-    uint16_t newDistance = static_cast<uint16_t>(distanceCm);
-
-    // Always emit when in Reverse gear (for PDC continuous updates)
-    // or when distance changes significantly
-    if (m_currentGear == "R" || qAbs(static_cast<int>(newDistance) - static_cast<int>(m_currentDistance)) > 2) {
-        m_currentDistance = newDistance;
-        // Emit with current gear so PDCApp/RemoteSpeaker can receive continuous updates
-        emit gearDistanceChanged(m_currentGear, m_currentGear, m_currentDistance);
-    } else {
-        m_currentDistance = newDistance;
-    }
+    // Store and forward raw distance data (filtering done in PDCApp)
+    m_currentDistance = static_cast<uint16_t>(distanceCm);
+    emit gearDistanceChanged(m_currentGear, m_currentGear, m_currentDistance);
 }
 
-uint8_t PiRacerController::getBatteryLevel() const
+uint16_t PiRacerController::getBatteryVoltage() const
 {
     if (m_batteryMonitor) {
-        return m_batteryMonitor->getPercentage();
+        return static_cast<uint16_t>(m_batteryMonitor->getVoltage() * 1000.0f);
+    }
+    return 0;
+}
+
+int16_t PiRacerController::getBatteryCurrent() const
+{
+    if (m_batteryMonitor) {
+        return static_cast<int16_t>(m_batteryMonitor->getCurrent());
     }
     return 0;
 }

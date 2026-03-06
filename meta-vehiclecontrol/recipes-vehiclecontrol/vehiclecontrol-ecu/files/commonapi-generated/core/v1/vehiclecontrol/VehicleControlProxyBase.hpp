@@ -38,7 +38,7 @@ class VehicleControlProxyBase
     : virtual public CommonAPI::Proxy {
 public:
     typedef CommonAPI::Event<
-        std::string, uint16_t, uint8_t, uint64_t
+        std::string, uint16_t, uint16_t, int16_t, uint64_t
     > VehicleStateChangedEvent;
     typedef CommonAPI::Event<
         std::string, std::string, uint16_t, uint64_t
